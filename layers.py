@@ -14,6 +14,9 @@ class nin(nn.Module):
         self.dim_out = dim_out
     
     def forward(self, x):
+        """
+        This is the same as 1x1 convolution
+        """
         og_x = x
         # assumes pytorch ordering
         """ a network in network layer (1x1 CONV) """

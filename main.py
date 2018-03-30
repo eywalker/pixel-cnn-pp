@@ -63,14 +63,15 @@ assert not os.path.exists(os.path.join('runs', model_name)), '{} already exists!
 writer = SummaryWriter(log_dir=os.path.join('runs', model_name))
 
 sample_batch_size = 25
-obs = (1, 28, 28) if 'mnist' in args.dataset else (3, 32, 32)
+obs = (1, 28, 28) if 'mnist' in args.dataset else (1, 32, 32) # use modified grayscale CIFAR 10
 input_channels = obs[0]
 rescaling     = lambda x : (x - .5) * 2.
 rescaling_inv = lambda x : .5 * x  + .5
 kwargs = {'num_workers':2, 'pin_memory':True, 'drop_last':True}
-ds_transforms = transforms.Compose([transforms.ToTensor(), rescaling])
+transform_list = [transforms.ToTensor(), rescaling]
 
-if 'mnist' in args.dataset : 
+if 'mnist' in args.dataset :
+    ds_transforms = transforms.Compose(transform_list)
     train_loader = torch.utils.data.DataLoader(datasets.MNIST(args.data_dir, download=True, 
                         train=True, transform=ds_transforms), batch_size=args.batch_size, 
                             shuffle=True, **kwargs)
@@ -81,15 +82,17 @@ if 'mnist' in args.dataset :
     loss_op   = lambda real, fake : discretized_mix_logistic_loss_1d(real, fake)
     sample_op = lambda x : sample_from_discretized_mix_logistic_1d(x, args.nr_logistic_mix)
 
-elif 'cifar' in args.dataset : 
+elif 'cifar' in args.dataset :
+    transform_list.append(transforms.GrayScale())  # add grayscale transformation
+    ds_transforms = transforms.Compose(transform_list)
     train_loader = torch.utils.data.DataLoader(datasets.CIFAR10(args.data_dir, train=True, 
         download=True, transform=ds_transforms), batch_size=args.batch_size, shuffle=True, **kwargs)
     
     test_loader  = torch.utils.data.DataLoader(datasets.CIFAR10(args.data_dir, train=False, 
                     transform=ds_transforms), batch_size=args.batch_size, shuffle=True, **kwargs)
     
-    loss_op   = lambda real, fake : discretized_mix_logistic_loss(real, fake)
-    sample_op = lambda x : sample_from_discretized_mix_logistic(x, args.nr_logistic_mix)
+    loss_op   = lambda real, fake : discretized_mix_logistic_loss_1d(real, fake)
+    sample_op = lambda x : sample_from_discretized_mix_logistic_1d(x, args.nr_logistic_mix)
 else :
     raise Exception('{} dataset not in {mnist, cifar10}'.format(args.dataset))
 
