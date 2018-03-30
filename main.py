@@ -3,6 +3,7 @@ import os
 import argparse
 import torch
 import torch.nn as nn
+from torch.nn import DataParallel
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim import lr_scheduler
@@ -11,12 +12,13 @@ from tensorboardX import SummaryWriter
 from utils import * 
 from model import * 
 from PIL import Image
+import os
 
 parser = argparse.ArgumentParser()
 # data I/O
 parser.add_argument('-i', '--data_dir', type=str,
                     default='data', help='Location for the dataset')
-parser.add_argument('-o', '--save_dir', type=str, default='models',
+parser.add_argument('-o', '--save_dir', type=str, default='saved',
                     help='Location for parameter checkpoints and samples')
 parser.add_argument('-d', '--dataset', type=str,
                     default='cifar', help='Can be either cifar|mnist')
@@ -25,7 +27,7 @@ parser.add_argument('-p', '--print_every', type=int, default=50,
 parser.add_argument('-t', '--save_interval', type=int, default=10,
                     help='Every how many epochs to write checkpoint/samples?')
 parser.add_argument('-r', '--load_params', type=str, default=None,
-                    help='Restore training from previous model checkpoint?')
+                    help='Point to checkpoint file to restore training from')
 # model
 parser.add_argument('-q', '--nr_resnet', type=int, default=5,
                     help='Number of residual blocks per stage of the model')
@@ -45,6 +47,13 @@ parser.add_argument('-s', '--seed', type=int, default=1,
                     help='Random seed to use')
 args = parser.parse_args()
 
+model_dir = os.path.join(args.save_dir, 'models')
+image_dir = os.path.join(args.save_dir, 'images')
+if not os.path.exists(model_dir):
+    os.makedirs(model_dir)
+if not os.path.exists(image_dir):
+    os.makedirs(image_dir)
+
 # reproducibility
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
@@ -58,7 +67,7 @@ obs = (1, 28, 28) if 'mnist' in args.dataset else (3, 32, 32)
 input_channels = obs[0]
 rescaling     = lambda x : (x - .5) * 2.
 rescaling_inv = lambda x : .5 * x  + .5
-kwargs = {'num_workers':1, 'pin_memory':True, 'drop_last':True}
+kwargs = {'num_workers':2, 'pin_memory':True, 'drop_last':True}
 ds_transforms = transforms.Compose([transforms.ToTensor(), rescaling])
 
 if 'mnist' in args.dataset : 
@@ -86,6 +95,7 @@ else :
 
 model = PixelCNN(nr_resnet=args.nr_resnet, nr_filters=args.nr_filters, 
             input_channels=input_channels, nr_logistic_mix=args.nr_logistic_mix)
+#model = DataParallel(model)
 model = model.cuda()
 
 if args.load_params:
@@ -154,10 +164,10 @@ for epoch in range(args.max_epochs):
     writer.add_scalar('test/bpd', (test_loss / deno), writes)
     print('test loss : %s' % (test_loss / deno))
     
-    if (epoch + 1) % args.save_interval == 0: 
-        torch.save(model.state_dict(), 'models/{}_{}.pth'.format(model_name, epoch))
+    if (epoch + 1) % args.save_interval == 0:
+        torch.save(model.state_dict(), '{}/{}_{}.pth'.format(model_dir, model_name, epoch))
         print('sampling...')
         sample_t = sample(model)
         sample_t = rescaling_inv(sample_t)
-        utils.save_image(sample_t,'images/{}_{}.png'.format(model_name, epoch), 
+        utils.save_image(sample_t,'{}/{}_{}.png'.format(image_dir, model_name, epoch), 
                 nrow=5, padding=0)
