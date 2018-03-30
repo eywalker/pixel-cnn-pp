@@ -83,7 +83,7 @@ if 'mnist' in args.dataset :
     sample_op = lambda x : sample_from_discretized_mix_logistic_1d(x, args.nr_logistic_mix)
 
 elif 'cifar' in args.dataset :
-    transform_list.append(transforms.GrayScale())  # add grayscale transformation
+    transform_list.append(transforms.Grayscale())  # add grayscale transformation
     ds_transforms = transforms.Compose(transform_list)
     train_loader = torch.utils.data.DataLoader(datasets.CIFAR10(args.data_dir, train=True, 
         download=True, transform=ds_transforms), batch_size=args.batch_size, shuffle=True, **kwargs)
