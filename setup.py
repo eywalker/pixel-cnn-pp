@@ -12,5 +12,5 @@ setup(
     author_email='',
     url='https://github.com/eywalker/pixelcnn-pp',
     packages=find_packages(exclude=[]),
-    install_requires=['numpy', 'tqdm', 'attorch'],
+    install_requires=['numpy', 'tqdm', 'pytorch'],
 )
